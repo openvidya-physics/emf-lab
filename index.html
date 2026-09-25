@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMF Induction Lab</title>
+<style>
+:root {
+  --bg: #f3f4f7; --panel: #ffffff; --ink: #161a21; --muted: #5d6675; --line: #dfe3e9;
+  --accent: #2257d6; --accent-ink: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+  --c1: #b77f00; --c2: #0a8ea6;               /* on light backgrounds */
+  --c1-scope: #ffd23f; --c2-scope: #3fd7f2;   /* on the dark scope screen */
+  --scope-bg: #0c1016; --scope-grid: #243040; --scope-axis: #3a4a5e; --scope-text: #9fb0c4;
+  --radius: 10px; --shadow: 0 1px 2px rgba(20,30,50,.06), 0 2px 8px rgba(20,30,50,.05);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--panel); border-radius: 8px;
+  padding: 6px 12px; min-height: 34px; }
+button:hover:not(:disabled) { border-color: #b9c1cd; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.on { background: #e7eefc; border-color: var(--accent); color: var(--accent); font-weight: 600; }
+button.danger.on { background: #fdecec; border-color: var(--bad); color: var(--bad); }
+select, input[type=number] { border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; background: var(--panel); min-height: 34px; }
+input[type=number] { width: 84px; }
+label { color: var(--muted); font-size: 12.5px; }
+
+header { display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: var(--panel);
+  border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 17px; margin: 0 12px 0 0; letter-spacing: .1px; }
+header h1 small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  font-size: 12.5px; background: #eef0f4; color: var(--muted); }
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: #9aa3b0; }
+.pill.ok { background: #e8f5ec; color: var(--ok); } .pill.ok .dot { background: var(--ok); }
+.pill.warn { background: #fdf3e6; color: var(--warn); } .pill.warn .dot { background: var(--warn); }
+.pill.bad { background: #fdecec; color: var(--bad); } .pill.bad .dot { background: var(--bad); }
+.spacer { flex: 1; }
+.coil2-switch { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; color: var(--ink); }
+body.single-coil .c2only { display: none !important; }
+body.single-coil .ro.c1 { grid-column: span 2; }
+.hdr-stat { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; padding: 14px 18px 24px; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px; }
+.card + .card { margin-top: 14px; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row + .row { margin-top: 10px; }
+.grow { flex: 1; }
+
+/* motor */
+.pwm-value { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; min-width: 64px; }
+.pwm-value small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.dir-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
+.note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+/* readouts */
+.readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ro { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.ro .k { font-size: 12px; color: var(--muted); }
+.ro .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.ro .v small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+.ro.c1 { border-left: 4px solid var(--c1); } .ro.c2 { border-left: 4px solid var(--c2); }
+.ro.wide { grid-column: span 2; }
+.clip { color: var(--bad); font-size: 12px; font-weight: 600; }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px 0 12px; }
+.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 14px; color: var(--muted); font-weight: 600; }
+.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab { display: none; } .tab.active { display: block; }
+
+/* scope */
+.scope-wrap { position: relative; background: var(--scope-bg); border-radius: 8px; overflow: hidden; }
+#scope { display: block; width: 100%; height: 440px; }
+.scope-badge { position: absolute; top: 8px; right: 10px; font-size: 12px; padding: 2px 8px; border-radius: 6px;
+  background: rgba(255,255,255,.08); color: var(--scope-text); font-variant-numeric: tabular-nums; }
+.scope-badge.hot { background: #7c2d12; color: #fed7aa; }
+.meas { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 12px; margin-top: 10px; }
+.meas div { font-size: 12.5px; color: var(--muted); }
+.meas b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+.ctl { display: flex; flex-direction: column; gap: 3px; }
+.lenz-box { grid-column: 1 / -1; margin-top: 4px; }
+table.lenz th, table.lenz td { font-size: 12.5px; }
+table.lenz tr.sub td { text-align: left; color: var(--muted); background: #fafbfc; }
+.legend-sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+
+/* tables */
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-size: 12px; background: #f8f9fb; position: sticky; top: 0; }
+th:first-child, td:first-child { text-align: left; }
+.table-box { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+td button { min-height: 24px; padding: 1px 8px; font-size: 12px; }
+.fit-box { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
+.fit { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.fit .t { font-size: 12px; color: var(--muted); }
+.fit .n { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
+#faradayChart { display: block; width: 100%; height: 320px; }
+.two-col { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 1200px) { .two-col { grid-template-columns: 1fr; } }
+
+.help h3 { font-size: 15px; margin: 18px 0 6px; } .help h3:first-child { margin-top: 0; }
+.help p, .help li { max-width: 78ch; }
+.help code { background: #eef0f4; padding: 1px 5px; border-radius: 4px; }
+.banner { padding: 10px 14px; border-radius: 8px; background: #fdf3e6; color: #7a3e06; margin-bottom: 12px; display: none; }
+.banner.show { display: block; }
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff;
+  padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+#toast.show { opacity: .95; }
+</style>
+</head>
+<body>
+<header>
+  <h1>EMF Induction Lab</h1>
+  <button id="btnConnect" class="primary">Connect kit</button>
+  <button id="btnDemo" title="Simulated kit for practice and teacher preparation">Demo mode</button>
+  <label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" id="chkAllPorts"> show all serial ports</label>
+  <label class="coil2-switch" title="Tick when a second coil is connected to A2–A3"><input type="checkbox" id="chkCoil2"> Coil 2 connected</label>
+  <span id="connPill" class="pill"><span class="dot"></span><span id="connText">Not connected</span></span>
+  <span class="spacer"></span>
+  <span class="hdr-stat" id="hdrFw"></span>
+  <span class="hdr-stat" id="hdrRate"></span>
+</header>
+
+<main>
+  <aside>
+    <div class="card">
+      <h2>Motor</h2>
+      <div class="row">
+        <div class="pwm-value" id="pwmValue">—<small>/ 255</small></div>
+        <span class="spacer"></span>
+        <button id="pwmDown" title="PWM −10">−10</button>
+        <button id="pwmUp" title="PWM +10">+10</button>
+      </div>
+      <div class="row"><input type="range" id="pwmSlider" min="0" max="255" step="1" value="100" aria-label="Motor PWM"></div>
+      <div class="row">
+        <div class="dir-group">
+          <button id="dirF">Forward</button>
+          <button id="dirR">Reverse</button>
+          <button id="dirS" class="danger">Stop</button>
+        </div>
+      </div>
+      <div class="note" id="motorNote">PWM is the motor drive level (0–255). The D0/D2 buttons on the kit also work.</div>
+    </div>
+
+    <div class="card">
+      <h2>Live readings</h2>
+      <div class="readouts">
+        <div class="ro c1"><div class="k">Coil 1 amplitude</div><div class="v" id="roA1">—<small>mV</small></div><div class="clip" id="clip1"></div></div>
+        <div class="ro c2 c2only"><div class="k">Coil 2 amplitude</div><div class="v" id="roA2">—<small>mV</small></div><div class="clip" id="clip2"></div></div>
+        <div class="ro c2only"><div class="k">Ratio C2 / C1</div><div class="v" id="roRatio">—</div></div>
+        <div class="ro c2only"><div class="k">Phase C2 vs C1</div><div class="v" id="roPhase">—<small>°</small></div></div>
+        <div class="ro"><div class="k">Speed</div><div class="v" id="roRpm">—<small>rpm</small></div></div>
+        <div class="ro"><div class="k">ω</div><div class="v" id="roOmega">—<small>rad/s</small></div></div>
+        <div class="ro wide"><div class="k" id="roFreqLabel">EMF frequency (C1 / C2)</div><div class="v" id="roFreq">—<small>Hz</small></div></div>
+      </div>
+      <div class="note">Amplitude = half the peak-to-peak EMF over the last second.<span class="c2only"> Phase compares the fundamental (sine) parts of the two EMFs; positive means C2 lags C1.</span></div>
+    </div>
+  </aside>
+
+  <section class="card">
+    <div id="banner" class="banner"></div>
+    <nav class="tabs" role="tablist">
+      <button class="active" data-tab="tabScope">Oscilloscope</button>
+      <button data-tab="tabFaraday">Faraday's law</button>
+      <button data-tab="tabRecord">Record data</button>
+      <button data-tab="tabHelp">Help</button>
+    </nav>
+
+    <!-- SCOPE -->
+    <div class="tab active" id="tabScope">
+      <div class="row" style="margin-bottom:10px; align-items:flex-end;">
+        <div class="ctl"><label>Trigger</label>
+          <select id="trigMode">
+            <option value="edge">Auto – rising edge</option>
+            <option value="roll">Roll (free run)</option>
+            <option value="single">Single shot (Lenz)</option>
+          </select></div>
+        <div class="ctl"><label>Source</label>
+          <select id="trigSrc"><option value="1">Coil 1</option><option value="2" class="c2only">Coil 2</option></select></div>
+        <div class="ctl" id="levelCtl"><label>Level (± mV)</label><input type="number" id="trigLevel" value="15" min="1" max="500" step="1"></div>
+        <div class="ctl"><label>Time / div</label>
+          <select id="timeDiv">
+            <option value="auto">Auto (2.5 cycles)</option>
+            <option value="0.002">2 ms</option><option value="0.005">5 ms</option><option value="0.01">10 ms</option>
+            <option value="0.02">20 ms</option><option value="0.05">50 ms</option><option value="0.1">100 ms</option>
+            <option value="0.2">200 ms</option><option value="0.5">500 ms</option><option value="1">1 s</option>
+          </select></div>
+        <div class="ctl"><label>Volts / div</label>
+          <select id="voltDiv">
+            <option value="auto">Auto</option>
+            <option value="1">1 mV</option><option value="2">2 mV</option><option value="5">5 mV</option>
+            <option value="10">10 mV</option><option value="20">20 mV</option><option value="50">50 mV</option>
+            <option value="100">100 mV</option><option value="200">200 mV</option>
+          </select></div>
+        <div class="ctl c2only"><label>Layout</label>
+          <select id="layout"><option value="overlay">Overlay</option><option value="split">Split</option></select></div>
+        <div class="ctl"><label>Show</label>
+          <div class="row" style="gap:10px; min-height:34px;">
+            <label><input type="checkbox" id="showC1" checked> <span class="legend-sw" style="background:var(--c1)"></span>C1</label>
+            <label class="c2only"><input type="checkbox" id="showC2" checked> <span class="legend-sw" style="background:var(--c2)"></span>C2</label>
+            <label title="Mark every measured sample"><input type="checkbox" id="showPts" checked> points</label>
+          </div></div>
+        <span class="spacer"></span>
+        <button id="btnArm" style="display:none">Arm</button>
+        <button id="btnDrop" style="display:none" title="Demo only">Drop magnet (demo)</button>
+        <button id="btnHold">Hold</button>
+        <button id="btnPng" title="Save the scope picture for your report">Save image</button>
+      </div>
+      <div class="scope-wrap">
+        <canvas id="scope"></canvas>
+        <div class="scope-badge" id="scopeBadge">—</div>
+      </div>
+      <div class="meas" id="scopeMeas"></div>
+    </div>
+
+    <!-- FARADAY -->
+    <div class="tab" id="tabFaraday">
+      <p style="margin-top:0; color:var(--muted); max-width:90ch;">Faraday's law for a rotating magnet predicts a peak EMF
+        <b>ε₀ = N·B·A·ω</b>: a straight line through the origin when plotted against angular speed ω.
+        Set a speed, wait until the reading is steady, then record a point. Repeat for 6–10 speeds.</p>
+      <div class="row">
+        <button id="btnRecordPoint" class="primary">Record point</button>
+        <span class="spacer"></span>
+        <div class="ctl"><label>Sweep PWM from</label><input type="number" id="swFrom" value="80" min="0" max="255"></div>
+        <div class="ctl"><label>to</label><input type="number" id="swTo" value="255" min="0" max="255"></div>
+        <div class="ctl"><label>points</label><input type="number" id="swN" value="8" min="2" max="30"></div>
+        <div class="ctl"><label>settle (s)</label><input type="number" id="swSettle" value="5" min="2" max="30"></div>
+        <button id="btnSweep" style="align-self:flex-end">Auto sweep</button>
+      </div>
+      <div class="note" id="sweepNote"></div>
+      <div class="two-col" style="margin-top:12px;">
+        <div>
+          <div class="table-box"><table id="farTable">
+            <thead><tr><th>#</th><th>PWM</th><th>rpm</th><th>ω rad/s</th><th>f Hz</th><th>C1 mV</th><th class="c2only">C2 mV</th><th class="c2only">C2/C1</th><th></th></tr></thead>
+            <tbody></tbody></table></div>
+          <div class="row" style="margin-top:10px;">
+            <button id="btnFarCsv">Download table (CSV)</button>
+            <button id="btnFarPng">Save graph</button>
+            <span class="spacer"></span>
+            <button id="btnFarClear">Clear all</button>
+          </div>
+        </div>
+        <div>
+          <canvas id="faradayChart"></canvas>
+          <div class="fit-box" id="fitBox"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECORD -->
+    <div class="tab" id="tabRecord">
+      <p style="margin-top:0; color:var(--muted); max-width:90ch;">Records every raw sample from both coils (about 330 per second each) plus the
+        5-per-second status readings. Download the CSV files and open them in Python, Excel or LibreOffice.</p>
+      <div class="row">
+        <button id="btnRec" class="primary">Start recording</button>
+        <div class="hdr-stat" id="recInfo">Not recording.</div>
+      </div>
+      <div class="row">
+        <button id="btnRawCsv" disabled>Download raw samples (CSV)</button>
+        <button id="btnStatusCsv" disabled>Download status log (CSV)</button>
+      </div>
+      <div class="note">Raw CSV columns: <code>time_s, coil, emf_mV</code> (one row per sample; with Coil 2 connected, both coils interleaved).
+        Status CSV columns: <code>time_s, pwm_set, pwm_now, dir, rpm, f1_Hz, f2_Hz, peak1_mV, peak2_mV, rms1_mV, rms2_mV, sps, dropped</code> (the Coil 2 columns only when Coil 2 is connected).
+        Recording stops automatically after 30 minutes.</div>
+    </div>
+
+    <!-- HELP -->
+    <div class="tab help" id="tabHelp">
+      <h3>Getting started</h3>
+      <ol>
+        <li>Use <b>Chrome</b> or <b>Edge</b> (Firefox and Safari cannot talk to USB serial devices).</li>
+        <li>Plug the kit into the computer with a <b>data</b> USB-C cable (some cables only charge).</li>
+        <li>Click <b>Connect kit</b> and choose the port named like <i>Feather ESP32-S2 Reverse TFT (COMx)</i>.</li>
+        <li>With one coil, leave <b>Coil 2 connected</b> unticked: everything about Coil 2 is hidden and left out of recordings. Tick it when the second coil is plugged into A2–A3.</li>
+        <li>The kit's Faraday page shows <b>USB LINK</b>. Use the motor panel on the left to set a speed. The kit's own buttons and screen pages keep working (D1 changes page).</li>
+      </ol>
+      <h3>Experiments</h3>
+      <ul>
+        <li><b>Oscilloscope</b> – watch the EMF from both coils. With <i>points</i> ticked, every measured sample is marked; the line between them is only a guide. <i>Sample spacing</i> below the screen shows the average and the largest gap between samples. <i>Auto – rising edge</i> keeps the waveform still. Use <i>Split</i> to compare shapes, <i>Overlay</i> to compare timing (phase).</li>
+        <li><b>Faraday's law</b> – record amplitude at several speeds; the page fits ε₀ = kω. The slope k equals N·B·A (units V·s = Wb-turns).</li>
+        <li><b>Lenz's law</b> – stop the motor, choose <i>Single shot</i>, click <b>Arm</b>, then bring a magnet up to the coil and take it away (or drop it through). The capture shows two opposite-polarity pulses. For each pulse the page shows its <b>peak</b>, its <b>width at half height</b>, and its <b>area ∫ε dt</b> (shaded). A faster movement gives a taller, narrower pulse, but both pulses should enclose about the same area: the flux change going in equals the flux change coming out. With <i>Time / div</i> on Auto, a capture covers 2 s (0.5 s before the trigger); choose a shorter setting for quick movements such as a dropped magnet.</li>
+      </ul>
+      <h3>Good to know</h3>
+      <ul>
+        <li>Each coil input is limited to <b>±512 mV</b>. A red <i>clipping</i> warning means the peaks are flattened — reduce speed for that reading.</li>
+        <li>The kit screen shows the largest |peak|; this page shows half the peak-to-peak value, which ignores any small DC offset. They can differ by a few mV.</li>
+        <li>Speed (rpm) is worked out from the Coil 1 EMF frequency, so it reads 0 when the motor is stopped or the signal is too small.</li>
+        <li><b>Phase</b> is the phase difference of the <i>fundamental</i> (best-fit sine) of each coil. If the waveforms have different shapes, the peaks and zero crossings on the screen can be several degrees further apart or closer together than this number.</li>
+        <li><b>Alignment check</b>: with the coils placed symmetrically, the phase should read about 0° in both Forward and Reverse. The same number with opposite sign in the two directions comes from the geometry (magnet or coil position); a number that keeps its sign would be a timing error.</li>
+      </ul>
+      <h3>Troubleshooting</h3>
+      <ul>
+        <li><b>No port in the list</b> – tick <i>show all serial ports</i>; try another cable or USB socket.</li>
+        <li><b>“Failed to open serial port”</b> – another program is using it. Close the Arduino Serial Monitor/Plotter or any other tab connected to the kit.</li>
+        <li><b>Connected but no data</b> – the kit may be running old (offline) firmware. It needs <code>EMF_Teaching_Kit_Dual_Coil_USB</code>.</li>
+        <li><b>“ADS1115 not found”</b> – check the Stemma QT cable between the Feather and the ADC board.</li>
+      </ul>
+      <p class="note" id="helpVersion"></p>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+'use strict';
+// EMF Induction Lab – Web Serial front end for EMF_Teaching_Kit_Dual_Coil_USB.
+// Protocol (see UsbLink.h in the firmware):
+//   PC -> kit : PING | INFO | STREAM 1|0 | PWM n | DIR F|R|S | STOP
+//   kit -> PC : H,fw,proto,ncyc,fs_mV,motor  D,t_us,coil,uV
+//               S,t_ms,pwm_set,pwm_now,dir,rpm,f1,f2,pk1,pk2,rms1,rms2,sps,dropped
+//               OK,cmd  E,message
+const APP_VERSION = '1.4.0';
+const ADAFRUIT_VID = 0x239A;
+const RING_SIZE = 32768;            // per coil, ~90 s at 330 samples/s
+const REC_LIMIT_S = 30 * 60;
+const NICE_TDIV = [0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1];
+const NICE_VDIV = [1, 2, 5, 10, 20, 50, 100, 200];
+
+const $ = (id) => document.getElementById(id);
+const dual = () => $('chkCoil2').checked;           // second coil connected?
+const trigSource = () => (dual() ? Number($('trigSrc').value) : 1);
+const showCh = (c) => (c === 1 ? $('showC1').checked : dual() && $('showC2').checked);
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// ---------------------------------------------------------------- data store
+class Ring {
+  constructor(n) { this.n = n; this.t = new Float64Array(n); this.v = new Float32Array(n); this.head = 0; this.count = 0; }
+  clear() { this.head = 0; this.count = 0; }
+  push(t, v) {
+    this.t[this.head] = t; this.v[this.head] = v;
+    this.head = (this.head + 1) % this.n;
+    if (this.count < this.n) this.count++;
+  }
+  idx(k) { return (this.head - this.count + k + this.n) % this.n; }
+  T(k) { return this.t[this.idx(k)]; }
+  lastT() { return this.count ? this.T(this.count - 1) : NaN; }
+  lower(t) { // first logical index with time >= t
+    let lo = 0, hi = this.count;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (this.T(m) < t) lo = m + 1; else hi = m; }
+    return lo;
+  }
+  slice(t0, t1) {
+    const a = this.lower(t0), b = this.lower(t1 + 1e-9), n = Math.max(0, b - a);
+    const t = new Float64Array(n), v = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const j = this.idx(a + i); t[i] = this.t[j]; v[i] = this.v[j]; }
+    return { t, v };
+  }
+}
+
+class SampleLog { // chunked column store for long recordings
+  constructor() { this.chunks = []; this.n = 0; this.CH = 65536; }
+  push(t, c, v) {
+    const k = this.n % this.CH;
+    if (k === 0) this.chunks.push({ t: new Float64Array(this.CH), c: new Uint8Array(this.CH), v: new Float32Array(this.CH) });
+    const ch = this.chunks[this.chunks.length - 1];
+    ch.t[k] = t; ch.c[k] = c; ch.v[k] = v; this.n++;
+  }
+}
+
+const st = {
+  link: null, kind: 'off',            // 'serial' | 'demo' | 'off'
+  hello: null, status: null, statusHist: [],
+  lastDataPc: 0, lastHelloPc: 0, connectPc: 0,
+  tOffset: 0, lastRawUs: null, latestT: NaN,
+  rings: { 1: new Ring(RING_SIZE), 2: new Ring(RING_SIZE) },
+  pcSamples: 0, pcRate: 0, pcRateWin: performance.now(),
+  pwmTouchPc: 0, pwmTimer: null,
+  hold: false, holdView: null,
+  single: { armed: false, trig: null, W: 0.5, capture: null },
+  vdiv: { value: 50, smallerSince: 0 },
+  rec: { on: false, raw: null, status: [], t0: NaN, lastT: 0, startPc: 0 },
+  far: [], sweep: null, keepAlive: null,
+  lastView: null,
+};
+
+function clearSignals() { // new time base (connect, or the kit restarted)
+  st.rings[1].clear(); st.rings[2].clear();
+  st.tOffset = 0; st.lastRawUs = null; st.latestT = NaN;
+  st.single.capture = null; st.single.trig = null;
+  st.holdView = null;
+}
+function resetData() {
+  clearSignals();
+  st.status = null; st.statusHist = []; st.hello = null;
+}
+
+// ---------------------------------------------------------------- parsing
+function unwrapUs(us) {
+  if (st.lastRawUs !== null) {
+    if (us < st.lastRawUs - 2147483648) st.tOffset += 4294967296;     // micros() wrapped
+    else if (us > st.lastRawUs + 2147483648) return (us + st.tOffset - 4294967296) / 1e6;
+  }
+  st.lastRawUs = us;
+  return (us + st.tOffset) / 1e6;
+}
+
+function onLine(line) {
+  if (!line) return;
+  const p = line.split(',');
+  st.lastDataPc = performance.now();
+  switch (p[0]) {
+    case 'D': {
+      if (p.length !== 4) return;
+      const us = Number(p[1]), c = Number(p[2]), uv = Number(p[3]);
+      if (!Number.isFinite(us) || (c !== 1 && c !== 2) || !Number.isFinite(uv)) return;
+      ingestSample(unwrapUs(us), c, uv / 1000);
+      return;
+    }
+    case 'S': {
+      if (p.length !== 14) return;
+      const n = (i) => Number(p[i]);
+      const s = { pc: performance.now(), ms: n(1), pwmSet: n(2), pwmNow: n(3), dir: p[4], rpm: n(5), f1: n(6), f2: n(7),
+        pk1: n(8), pk2: n(9), rms1: n(10), rms2: n(11), sps: n(12), dropped: n(13) };
+      if ([s.ms, s.pwmSet, s.rpm, s.f1].some((x) => !Number.isFinite(x))) return;
+      ingestStatus(s);
+      return;
+    }
+    case 'H': {
+      if (p.length < 6) return;
+      st.hello = { fw: p[1], proto: Number(p[2]), ncyc: Number(p[3]) || 1, fs: Number(p[4]) || 512, motor: p[5] === '1' };
+      st.lastHelloPc = performance.now();
+      onHello();
+      return;
+    }
+    case 'E': toast('Kit says: ' + p.slice(1).join(',')); return;
+    default: return; // OK lines and anything unknown
+  }
+}
+
+function ingestSample(t, c, mv) {
+  const ring = st.rings[c];
+  if (ring.count && t < ring.lastT() - 0.5) {           // kit restarted: time jumped back
+    clearSignals();
+    if (st.rec.on) { stopRecording(); toast('The kit restarted – recording stopped.'); return; }
+  }
+  ring.push(t, mv);
+  if (!(t <= st.latestT)) st.latestT = t;
+  st.pcSamples++;
+
+  if (st.rec.on && (c === 1 || dual())) {
+    if (!Number.isFinite(st.rec.t0)) st.rec.t0 = t;
+    st.rec.raw.push(t - st.rec.t0, c, mv);
+    st.rec.lastT = t - st.rec.t0;
+  }
+
+  const sg = st.single;
+  if (sg.armed && c === trigSource() && Math.abs(mv) >= Number($('trigLevel').value)) {
+    sg.armed = false; sg.trig = t;
+  }
+  if (sg.trig !== null && !sg.capture && st.latestT >= sg.trig + 0.75 * sg.W) {
+    const t0 = sg.trig - 0.25 * sg.W, t1 = t0 + sg.W;
+    sg.capture = { t0, t1, W: sg.W, c1: st.rings[1].slice(t0, t1), c2: st.rings[2].slice(t0, t1),
+      label: 'Captured', origin: sg.trig, captured: true, lobes: {} };
+    updateSingleUi();
+  }
+}
+
+function ingestStatus(s) {
+  st.status = s;
+  st.statusHist.push(s);
+  const cutoff = s.pc - 60000;
+  while (st.statusHist.length && st.statusHist[0].pc < cutoff) st.statusHist.shift();
+  if (st.rec.on && Number.isFinite(st.rec.t0)) st.rec.status.push([st.latestT - st.rec.t0, s]);
+  syncMotorUi();
+}
+
+// ---------------------------------------------------------------- links
+function send(line) { if (st.link) st.link.send(line); }
+
+async function connectSerial() {
+  if (!('serial' in navigator)) { showBanner('This browser cannot use USB serial devices. Please open this page in Google Chrome or Microsoft Edge.'); return; }
+  const opts = $('chkAllPorts').checked ? {} : { filters: [{ usbVendorId: ADAFRUIT_VID }] };
+  let port;
+  try { port = await navigator.serial.requestPort(opts); } catch (e) { return; } // cancelled
+  try { await port.open({ baudRate: 115200, bufferSize: 1 << 16 }); } // never 1200 baud: that reboots the S2 into its bootloader
+  catch (e) { toast('Could not open the port. Close the Arduino Serial Monitor or any other tab using the kit.'); return; }
+  try { await port.setSignals({ dataTerminalReady: true }); } catch (e) { /* not fatal */ }
+
+  const encoder = new TextEncoder();
+  const writer = port.writable.getWriter();
+  const decoder = new TextDecoderStream();
+  const pipeDone = port.readable.pipeTo(decoder.writable).catch(() => {});
+  const reader = decoder.readable.getReader();
+  let chain = Promise.resolve();
+  let closing = false;
+
+  const link = {
+    kind: 'serial', port,
+    send(line) { chain = chain.then(() => writer.write(encoder.encode(line + '\n'))).catch(() => {}); },
+    async close() {
+      if (closing) return; closing = true;
+      try { this.send('STREAM 0'); await Promise.race([chain, sleep(300)]); } catch (e) {}
+      try { await reader.cancel(); } catch (e) {}
+      await pipeDone;
+      try { writer.releaseLock(); } catch (e) {}
+      try { await port.close(); } catch (e) {}
+    },
+  };
+
+  (async () => {
+    let buf = '';
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += value;
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, i).replace(/\r$/, '');
+          buf = buf.slice(i + 1);
+          onLine(line);
+        }
+        if (buf.length > 4096) buf = '';
+      }
+    } catch (e) { /* device unplugged */ }
+    if (!closing && st.link === link) { toast('The kit was disconnected.'); disconnect(); }
+  })();
+
+  startLink(link, 'serial');
+}
+
+function startDemo() {
+  const sim = new Simulator();
+  const link = { kind: 'demo', sim, send: (l) => sim.command(l), close: async () => sim.stop() };
+  startLink(link, 'demo');
+  sim.start();
+  updateSingleUi();
+}
+
+function startLink(link, kind) {
+  resetData();
+  st.link = link; st.kind = kind; st.connectPc = performance.now();
+  send('INFO'); send('STREAM 1');
+  // Keep-alive. If data has stopped (e.g. the tab was in the background long
+  // enough for Chrome to throttle timers and the kit timed out), re-request it.
+  st.keepAlive = setInterval(() => {
+    const quiet = performance.now() - st.lastDataPc > 1500 && performance.now() - st.connectPc > 1500;
+    send(quiet ? 'STREAM 1' : 'PING');
+  }, 1000);
+  hideBanner();
+  updateConnUi();
+}
+
+async function disconnect() {
+  const link = st.link;
+  if (st.sweep) st.sweep.cancel = true;
+  clearInterval(st.keepAlive); st.keepAlive = null;
+  st.link = null; st.kind = 'off';
+  if (st.rec.on) stopRecording();
+  hideBanner();
+  if (link) { try { await link.close(); } catch (e) { /* already gone */ } }
+  updateConnUi(); updateSingleUi();
+}
+
+if ('serial' in navigator) {
+  navigator.serial.addEventListener('disconnect', (e) => {
+    if (st.link && st.link.port === e.target) { toast('The kit was unplugged.'); disconnect(); }
+  });
+}
+
+// ---------------------------------------------------------------- simulator (demo mode)
+class Simulator {
+  constructor() {
+    this.pwmSet = 100; this.pwmNow = 0; this.dir = 'S'; this.rpm = 0; this.theta = 0;
+    this.stream = false; this.ncyc = 1; this.t0 = performance.now(); this.tUs = 0; this.nextCh = 1;
+    this.lastStatusUs = 0; this.drops = []; this.hist = { 1: [], 2: [] }; this.cross = [];
+    this.sampleCount = 0; this.spsWinUs = 0; this.sps = 0; this.timer = null; this.k1 = 11; this.k2 = 0.62 * 11;
+  }
+  start() { this.timer = setInterval(() => this.tick(), 20); }
+  stop() { clearInterval(this.timer); }
+  out(line) { onLine(line); }
+  hello() { this.out(`H,demo-simulator,1,${this.ncyc.toFixed(2)},512,1`); }
+  command(line) {
+    const s = line.trim().toUpperCase(); let m;
+    if (s === 'PING') return;
+    if (s === 'INFO') return this.hello();
+    if (s === 'STREAM 1') { this.stream = true; this.out('OK,STREAM 1'); return this.hello(); }
+    if (s === 'STREAM 0') { this.stream = false; return this.out('OK,STREAM 0'); }
+    if ((m = s.match(/^PWM (\d{1,3})$/)) && +m[1] <= 255) { this.pwmSet = +m[1]; return this.out('OK,PWM'); }
+    if ((m = s.match(/^DIR ([FRS])$/))) { this.dir = m[1]; return this.out('OK,DIR'); }
+    if (s === 'STOP') { this.dir = 'S'; return this.out('OK,DIR'); }
+    this.out('E,unknown command');
+  }
+  dropMagnet() { this.drops.push(this.tUs / 1e6 + 0.05); }
+  gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  // EMF of a magnet passing through a coil: -dΦ/dt of a flux bump Φ = F·exp(-(t-t0)²/σ²).
+  // σ is longer on approach than on exit (the magnet speeds up), so the second
+  // pulse is taller and narrower, but both pulses enclose the same area F.
+  lenz(t, t0, fluxMvS) {
+    const sig = t < t0 ? 0.016 : 0.010, x = (t - t0) / sig; if (Math.abs(x) > 6) return 0;
+    return fluxMvS * 2 * (t - t0) / (sig * sig) * Math.exp(-x * x);
+  }
+  tick() {
+    const nowUs = (performance.now() - this.t0) * 1000;
+    const STEP = 1450; // µs per conversion incl. I2C
+    while (this.tUs + STEP <= nowUs) {
+      const dt = STEP / 1e6; this.tUs += STEP;
+      // motor: PWM ramps 200/s, speed follows with τ = 0.6 s
+      const target = this.dir === 'S' ? 0 : this.pwmSet;
+      this.pwmNow += clamp(target - this.pwmNow, -200 * dt, 200 * dt);
+      const sign = this.dir === 'R' ? -1 : 1;
+      const rpmT = this.pwmNow < 35 ? 0 : (this.pwmNow - 35) * 1.25 * (this.dir === 'S' ? Math.sign(this.rpm) || 1 : sign);
+      this.rpm += (rpmT - this.rpm) * (dt / 0.6);
+      const w = (2 * Math.PI * this.rpm) / 60;
+      this.theta += w * this.ncyc * dt;
+      const t = this.tUs / 1e6, ch = this.nextCh; this.nextCh = ch === 1 ? 2 : 1;
+      let mv = ch === 1 ? this.k1 * Math.abs(w) * Math.sin(this.theta) + 0.8
+                        : this.k2 * Math.abs(w) * Math.sin(this.theta - 40 * Math.PI / 180) - 0.4;
+      for (const d of this.drops) mv += ch === 1 ? this.lenz(t, d, 2.0) : this.lenz(t, d + 0.07, 1.0);
+      mv += 0.25 * this.gauss();
+      mv = clamp(mv, -512, 511.98);
+      const uv = Math.round(mv * 64) * 15.625; // ADS1115 gain 8 LSB
+      this.drops = this.drops.filter((d) => t < d + 0.5);
+      const h = this.hist[ch]; h.push(uv / 1000); if (h.length > 512) h.shift();
+      this.sampleCount++;
+      if (this.stream) this.out(`D,${Math.floor(this.tUs) >>> 0},${ch},${Math.round(uv)}`);
+      if (this.tUs - this.spsWinUs >= 1e6) { this.sps = Math.round(this.sampleCount * 1e6 / (this.tUs - this.spsWinUs)); this.sampleCount = 0; this.spsWinUs = this.tUs; }
+      if (this.tUs - this.lastStatusUs >= 200000) { this.lastStatusUs = this.tUs; if (this.stream) this.status(); }
+    }
+  }
+  status() {
+    const pk = (h) => h.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
+    const rms = (h) => Math.sqrt(h.reduce((s, x) => s + x * x, 0) / Math.max(1, h.length));
+    const f = Math.abs(this.rpm) * this.ncyc / 60;
+    const valid = f > 0.2 && pk(this.hist[1]) > 3;
+    const rpm = valid ? Math.abs(this.rpm) : 0;
+    const f1 = valid ? f : 0;
+    this.out(`S,${Math.floor(this.tUs / 1000)},${this.pwmSet},${Math.round(this.pwmNow)},${this.dir},${rpm.toFixed(1)},${f1.toFixed(3)},${f1.toFixed(3)},` +
+      `${pk(this.hist[1]).toFixed(2)},${pk(this.hist[2]).toFixed(2)},${rms(this.hist[1]).toFixed(2)},${rms(this.hist[2]).toFixed(2)},${this.sps},0`);
+  }
+}
+
+// ---------------------------------------------------------------- analysis helpers
+function stats(v) {
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < v.length; i++) { if (v[i] < mn) mn = v[i]; if (v[i] > mx) mx = v[i]; }
+  return { min: mn, max: mx };
+}
+function amplitude(c, seconds) {
+  const r = st.rings[c]; if (!r.count) return null;
+  const tl = r.lastT(); const { v } = r.slice(tl - seconds, tl);
+  if (v.length < 4) return null;
+  const s = stats(v);
+  return { amp: (s.max - s.min) / 2, maxAbs: Math.max(Math.abs(s.max), Math.abs(s.min)), n: v.length };
+}
+function risingCrossings(t, v) {
+  if (v.length < 8) return [];
+  const s = stats(v), span = s.max - s.min;
+  if (span < 2) return [];
+  const level = (s.max + s.min) / 2, hyst = 0.1 * span;
+  const out = []; let armed = false;
+  for (let i = 1; i < v.length; i++) {
+    if (v[i - 1] < level - hyst) armed = true;
+    if (armed && v[i - 1] < level && v[i] >= level) {
+      out.push(t[i - 1] + (level - v[i - 1]) * (t[i] - t[i - 1]) / (v[i] - v[i - 1]));
+      armed = false;
+    }
+  }
+  return out;
+}
+// Least-squares fit of v(t) = c + Σ_{n=1..3} [a_n sin(nωt) + b_n cos(nωt)].
+// Returns the fundamental amplitude/phase and the 2nd/3rd-harmonic ratios.
+// Using the fundamental makes the phase independent of waveform shape: with an
+// imperfectly centred magnet the two coils carry opposite 2nd harmonics, which
+// move zero crossings and peaks by different amounts (up to ~10° each way).
+function harmonicFit(t, v, f, tRef) {
+  const n = t.length; if (n < 24) return null;
+  const K = 7, A = new Float64Array(K * K), B = new Float64Array(K), row = new Float64Array(K);
+  const w = 2 * Math.PI * f;
+  for (let i = 0; i < n; i++) {
+    const x = w * (t[i] - tRef);
+    row[0] = Math.sin(x); row[1] = Math.cos(x); row[2] = Math.sin(2 * x); row[3] = Math.cos(2 * x);
+    row[4] = Math.sin(3 * x); row[5] = Math.cos(3 * x); row[6] = 1;
+    for (let r = 0; r < K; r++) { B[r] += row[r] * v[i]; for (let c = 0; c < K; c++) A[r * K + c] += row[r] * row[c]; }
+  }
+  // Gaussian elimination with partial pivoting (7x7)
+  for (let col = 0; col < K; col++) {
+    let p = col; for (let r = col + 1; r < K; r++) if (Math.abs(A[r * K + col]) > Math.abs(A[p * K + col])) p = r;
+    if (Math.abs(A[p * K + col]) < 1e-12) return null;
+    if (p !== col) { for (let c = 0; c < K; c++) { const tmp = A[col * K + c]; A[col * K + c] = A[p * K + c]; A[p * K + c] = tmp; } const tb = B[col]; B[col] = B[p]; B[p] = tb; }
+    for (let r = col + 1; r < K; r++) { const fct = A[r * K + col] / A[col * K + col]; for (let c = col; c < K; c++) A[r * K + c] -= fct * A[col * K + c]; B[r] -= fct * B[col]; }
+  }
+  const x = new Float64Array(K);
+  for (let r = K - 1; r >= 0; r--) { let s2 = B[r]; for (let c = r + 1; c < K; c++) s2 -= A[r * K + c] * x[c]; x[r] = s2 / A[r * K + r]; }
+  const a1 = Math.hypot(x[0], x[1]);
+  if (!(a1 > 0)) return null;
+  return { amp: a1, phaseDeg: Math.atan2(x[1], x[0]) * 180 / Math.PI,
+    h2: Math.hypot(x[2], x[3]) / a1, h3: Math.hypot(x[4], x[5]) / a1, offset: x[6] };
+}
+function waveAnalysis() {
+  const r1 = st.rings[1], r2 = st.rings[2]; if (!r1.count || !r2.count) return null;
+  const tl = Math.min(r1.lastT(), r2.lastT());
+  let f = st.status ? st.status.f1 : 0;
+  if (!(f > 0.3)) return null;
+  const span = clamp(4 / f, 0.5, 6);
+  const a = r1.slice(tl - span, tl), b = r2.slice(tl - span, tl);
+  const x1 = risingCrossings(a.t, a.v);           // refine f from this window
+  if (x1.length >= 3) f = (x1.length - 1) / (x1[x1.length - 1] - x1[0]);
+  const f1 = harmonicFit(a.t, a.v, f, tl), f2 = harmonicFit(b.t, b.v, f, tl);
+  if (!f1 || !f2) return null;
+  let lag = f1.phaseDeg - f2.phaseDeg;              // positive: C2 lags C1
+  lag = ((lag + 180) % 360 + 360) % 360 - 180;
+  const ok = f1.amp > 2 && f2.amp > 2;
+  return { lag: ok ? lag : null, c1: f1, c2: f2 };
+}
+function niceUp(x, list) { for (const v of list) if (v >= x - 1e-12) return v; return list[list.length - 1]; }
+function fmt(x, d = 1) { return Number.isFinite(x) ? x.toFixed(d) : '—'; }
+function fmtTime(s) { const a = Math.abs(s); if (a >= 1) return (s).toFixed(a >= 10 ? 0 : 1) + ' s'; return (s * 1000).toFixed(a >= 0.01 ? 0 : 1) + ' ms'; }
+
+// ---------------------------------------------------------------- scope
+function windowSeconds() {
+  const sel = $('timeDiv').value;
+  if (sel !== 'auto') return Number(sel) * 10;
+  if ($('trigMode').value === 'single') return 2;   // hand movements: 0.5 s before, 1.5 s after the trigger
+  const f = st.status && st.status.f1 > 0.2 ? st.status.f1 : 0;
+  if (!f) return 1;
+  return niceUp(2.5 / f / 10, NICE_TDIV) * 10;
+}
+
+function findTrigger(ring, tl, W) {
+  const tEnd = tl - 0.9 * W, tStart = tEnd - Math.max(3 * W, 0.2);
+  const { t, v } = ring.slice(tStart, tEnd);
+  const x = risingCrossings(t, v);
+  return x.length ? x[x.length - 1] : null;
+}
+
+function buildView() {
+  const mode = $('trigMode').value;
+  if (mode === 'single' && st.single.capture) return st.single.capture;
+  if (st.hold && st.holdView) return st.holdView;
+  const r1 = st.rings[1], r2 = st.rings[2];
+  let tl = Math.min(r1.count ? r1.lastT() : Infinity, r2.count ? r2.lastT() : Infinity);
+  if (!Number.isFinite(tl)) return null;
+  const W = mode === 'single' ? st.single.W : windowSeconds();
+  let t0 = tl - W, label = 'Roll', origin = null;
+  if (mode === 'edge') {
+    const tt = findTrigger(st.rings[trigSource()], tl, W);
+    if (tt !== null) { t0 = tt - 0.1 * W; label = 'Triggered'; origin = tt; } else label = 'Auto – no trigger';
+  } else if (mode === 'single') {
+    label = st.single.armed ? 'Armed – waiting for pulse' : (st.single.trig !== null ? 'Triggered…' : 'Press Arm');
+  }
+  return { t0, t1: t0 + W, W, c1: r1.slice(t0, t0 + W), c2: r2.slice(t0, t0 + W), label, origin: origin ?? t0 };
+}
+
+function chooseVdiv(view) {
+  const sel = $('voltDiv').value;
+  if (sel !== 'auto') return Number(sel);
+  let m = 0;
+  if (showCh(1)) { const s = stats(view.c1.v); if (view.c1.v.length) m = Math.max(m, Math.abs(s.max), Math.abs(s.min)); }
+  if (showCh(2)) { const s = stats(view.c2.v); if (view.c2.v.length) m = Math.max(m, Math.abs(s.max), Math.abs(s.min)); }
+  const want = niceUp(Math.max(m, 0.5) / 3.6, NICE_VDIV);
+  const now = performance.now(), vd = st.vdiv;
+  if (want > vd.value || view.captured) { vd.value = want; vd.smallerSince = 0; }
+  else if (want < vd.value) {
+    if (!vd.smallerSince) vd.smallerSince = now;
+    else if (now - vd.smallerSince > 1200) { vd.value = want; vd.smallerSince = 0; }
+  } else vd.smallerSince = 0;
+  return vd.value;
+}
+
+function fitCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(50, Math.round(cv.clientWidth * dpr)), h = Math.max(50, Math.round(cv.clientHeight * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  return dpr;
+}
+
+function drawScope() {
+  const cv = $('scope'); if (!cv.clientWidth) return;
+  const dpr = fitCanvas(cv), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.fillStyle = css('--scope-bg'); ctx.fillRect(0, 0, W, H);
+  const view = buildView(); st.lastView = view;
+  const L = 58 * dpr, R = 12 * dpr, T = 10 * dpr, B = 26 * dpr;
+  const pw = W - L - R, ph = H - T - B;
+  const split = dual() && $('layout').value === 'split';
+  const panes = split ? [{ y: T, h: ph / 2 - 4 * dpr, chs: [1] }, { y: T + ph / 2 + 4 * dpr, h: ph / 2 - 4 * dpr, chs: [2] }]
+                      : [{ y: T, h: ph, chs: [1, 2] }];
+  const vdiv = view ? chooseVdiv(view) : st.vdiv.value;
+  ctx.font = `${11 * dpr}px system-ui, sans-serif`;
+  const colors = { 1: css('--c1-scope'), 2: css('--c2-scope') };
+
+  for (const pane of panes) {
+    // grid: 10 x 8 divisions
+    ctx.strokeStyle = css('--scope-grid'); ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= 10; i++) { const x = Math.round(L + pw * i / 10) + 0.5; ctx.moveTo(x, pane.y); ctx.lineTo(x, pane.y + pane.h); }
+    for (let j = 0; j <= 8; j++) { const y = Math.round(pane.y + pane.h * j / 8) + 0.5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); }
+    ctx.stroke();
+    ctx.strokeStyle = css('--scope-axis'); ctx.beginPath();
+    const yc = Math.round(pane.y + pane.h / 2) + 0.5; ctx.moveTo(L, yc); ctx.lineTo(L + pw, yc); ctx.stroke();
+    // volt labels
+    ctx.fillStyle = css('--scope-text'); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let j = 0; j <= 8; j += 2) {
+      const mv = (4 - j) * vdiv; const y = pane.y + pane.h * j / 8;
+      ctx.fillText(`${mv > 0 ? '+' : ''}${mv} mV`, L - 6 * dpr, clamp(y, pane.y + 6 * dpr, pane.y + pane.h - 6 * dpr));
+    }
+    if (split) {
+      ctx.textAlign = 'left'; ctx.fillStyle = colors[pane.chs[0]];
+      ctx.fillText(`Coil ${pane.chs[0]}`, L + 6 * dpr, pane.y + 10 * dpr);
+    }
+    if (!view) continue;
+    const yOf = (mv) => pane.y + pane.h / 2 - (mv / (4 * vdiv)) * (pane.h / 2);
+    const xOf = (t) => L + (t - view.t0) / view.W * pw;
+    // single-shot level markers
+    if ($('trigMode').value === 'single' && pane.chs.includes(trigSource())) {
+      const lv = Number($('trigLevel').value);
+      ctx.setLineDash([5 * dpr, 5 * dpr]); ctx.strokeStyle = 'rgba(255,140,80,.7)'; ctx.beginPath();
+      for (const s of [1, -1]) { const y = yOf(s * lv); if (y > pane.y && y < pane.y + pane.h) { ctx.moveTo(L, y); ctx.lineTo(L + pw, y); } }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    // traces (clip to pane)
+    ctx.save(); ctx.beginPath(); ctx.rect(L, pane.y, pw, pane.h); ctx.clip();
+    for (const c of pane.chs) {
+      if (!showCh(c)) continue;
+      const d = c === 1 ? view.c1 : view.c2; if (d.t.length < 2) continue;
+      ctx.strokeStyle = colors[c]; ctx.lineWidth = 1.7 * dpr; ctx.lineJoin = 'round'; ctx.beginPath();
+      for (let i = 0; i < d.t.length; i++) { const x = xOf(d.t[i]), y = yOf(d.v[i]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+      ctx.stroke();
+      // Mark the measured samples when they are far enough apart to see.
+      if ($('showPts').checked && pw / d.t.length >= 2.5 * dpr) {
+        ctx.fillStyle = colors[c];
+        const r = 1.6 * dpr;
+        for (let i = 0; i < d.t.length; i++) { ctx.fillRect(xOf(d.t[i]) - r, yOf(d.v[i]) - r, 2 * r, 2 * r); }
+      }
+      if (view.captured) drawLobes(ctx, view, c, d, xOf, yOf, colors[c], dpr);
+    }
+    ctx.restore();
+  }
+  // trigger marker + time labels
+  if (view) {
+    const xOf = (t) => L + (t - view.t0) / view.W * pw;
+    if (view.origin !== view.t0) {
+      const x = xOf(view.origin); ctx.fillStyle = 'rgba(255,140,80,.9)';
+      ctx.beginPath(); ctx.moveTo(x - 5 * dpr, T); ctx.lineTo(x + 5 * dpr, T); ctx.lineTo(x, T + 7 * dpr); ctx.fill();
+    }
+    ctx.fillStyle = css('--scope-text'); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let i = 0; i <= 10; i += 2) {
+      const t = view.t0 + view.W * i / 10 - view.origin;
+      ctx.fillText(fmtTime(t), clamp(L + pw * i / 10, L + 16 * dpr, L + pw - 16 * dpr), H - B + 7 * dpr);
+    }
+  } else {
+    ctx.fillStyle = css('--scope-text'); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `${14 * dpr}px system-ui, sans-serif`;
+    ctx.fillText(st.link ? 'Waiting for data from the kit…' : 'Click “Connect kit” (or “Demo mode”) to start', L + pw / 2, T + ph / 2);
+  }
+  const badge = $('scopeBadge');
+  if (view) {
+    badge.textContent = `${st.hold && !view.captured ? 'HOLD · ' : ''}${view.label} · ${fmtTime(view.W / 10)}/div · ${vdiv} mV/div`;
+    badge.classList.toggle('hot', !!view.captured || (st.hold && $('trigMode').value !== 'single'));
+  } else badge.textContent = '—';
+}
+
+// ---------------------------------------------------------------- Lenz pulse analysis
+// A magnet moved into and out of a coil gives two pulses of opposite sign.
+// For the largest positive and the largest negative pulse in a capture this
+// finds: peak (above the pre-trigger baseline), width at half height, and area
+// ∫ε dt between the pulse's own zero crossings (= N·ΔΦ for that half of the
+// motion). Peaks and widths depend on how fast the magnet moved; the two areas
+// should be nearly equal and opposite because the flux returns to where it began.
+function lenzLobes(view, c) {
+  if (view.lobes[c]) return view.lobes[c];
+  const d = c === 1 ? view.c1 : view.c2;
+  const n = d.v.length;
+  const res = { base: 0, lobes: [], net: NaN };
+  if (n < 8) return (view.lobes[c] = res);
+  let nb = 0, base = 0, base2 = 0;
+  for (let i = 0; i < n && d.t[i] < view.t0 + 0.2 * view.W; i++) { base += d.v[i]; base2 += d.v[i] * d.v[i]; nb++; }
+  base = nb ? base / nb : 0;
+  const noise = nb > 2 ? Math.sqrt(Math.max(0, base2 / nb - base * base)) : 0;
+  const y = Array.from(d.v, (v) => v - base);
+  const tAt = (i, level) => d.t[i] + (level - y[i]) * (d.t[i + 1] - d.t[i]) / (y[i + 1] - y[i]);
+  let net = 0;
+  for (let i = 1; i < n; i++) net += 0.5 * (y[i] + y[i - 1]) * (d.t[i] - d.t[i - 1]);
+  res.base = base; res.net = net;
+  for (const sgn of [1, -1]) {
+    let p = 0;
+    for (let i = 1; i < n; i++) if (sgn * y[i] > sgn * y[p]) p = i;
+    const peak = sgn * y[p];
+    if (!(peak > Math.max(5 * noise, 1))) continue;          // no real pulse of this sign
+    // extent: to the zero crossings either side of the peak
+    let a = p; while (a > 0 && sgn * y[a - 1] > 0) a--;
+    let b = p; while (b < n - 1 && sgn * y[b + 1] > 0) b++;
+    const tStart = a > 0 ? tAt(a - 1, 0) : d.t[a];
+    const tEnd = b < n - 1 ? tAt(b, 0) : d.t[b];
+    let area = 0.5 * y[a] * (d.t[a] - tStart) + 0.5 * y[b] * (tEnd - d.t[b]);
+    for (let i = a + 1; i <= b; i++) area += 0.5 * (y[i] + y[i - 1]) * (d.t[i] - d.t[i - 1]);
+    // width at half height
+    const half = sgn * peak / 2;
+    let l = p; while (l > a && sgn * y[l - 1] > peak / 2) l--;
+    let r = p; while (r < b && sgn * y[r + 1] > peak / 2) r++;
+    const tL = l > 0 ? tAt(l - 1, half) : d.t[l];
+    const tR = r < n - 1 ? tAt(r, half) : d.t[r];
+    res.lobes.push({ sign: sgn, peak: sgn * peak, tPeak: d.t[p], tStart, tEnd, tL, tR, width: tR - tL, area });
+  }
+  res.lobes.sort((u, v) => u.tPeak - v.tPeak);
+  return (view.lobes[c] = res);
+}
+
+function lenzTable(view) {
+  const rows = [];
+  for (const c of [1, 2]) {
+    if (!showCh(c)) continue;
+    const L = lenzLobes(view, c);
+    const sw = `<span class="legend-sw" style="background:var(--c${c})"></span>`;
+    if (!L.lobes.length) { rows.push(`<tr><td>${sw}Coil ${c}</td><td colspan="3" style="text-align:left;color:var(--muted)">no pulse above the noise</td></tr>`); continue; }
+    L.lobes.forEach((lb, k) => {
+      rows.push(`<tr><td>${sw}Coil ${c} · ${k === 0 ? '1st' : '2nd'} pulse (${lb.sign > 0 ? '+' : '−'})</td>` +
+        `<td>${lb.peak > 0 ? '+' : '−'}${fmt(Math.abs(lb.peak), 1)} mV</td><td>${fmt(lb.width * 1000, 1)} ms</td>` +
+        `<td>${lb.area > 0 ? '+' : '−'}${fmt(Math.abs(lb.area), 3)} mV·s</td></tr>`);
+    });
+    if (L.lobes.length === 2) {
+      const [p1, p2] = L.lobes;
+      rows.push(`<tr class="sub"><td colspan="4">Coil ${c}: peaks ${fmtTime(p2.tPeak - p1.tPeak)} apart · ` +
+        `peak ratio |2nd/1st| = ${fmt(Math.abs(p2.peak / p1.peak), 2)} · width ratio = ${fmt(p2.width / p1.width, 2)} · ` +
+        `area ratio = ${fmt(Math.abs(p2.area / p1.area), 2)} · whole capture ∫ε dt = ${fmt(L.net, 3)} mV·s</td></tr>`);
+    }
+  }
+  return `<div class="lenz-box"><table class="lenz"><thead><tr><th>Pulse</th><th>Peak</th><th>Width at half height</th>` +
+    `<th>Area ∫ε dt (= N·ΔΦ)</th></tr></thead><tbody>${rows.join('')}</tbody></table>` +
+    `<div class="note">Peak and area are measured from the quiet level before the trigger; each area runs between that pulse's own zero crossings. ` +
+    `1 mV·s = 1 mWb-turn of flux linkage.</div></div>`;
+}
+
+// Shade each pulse, mark its peak and draw its half-height width bar.
+function drawLobes(ctx, view, c, d, xOf, yOf, color, dpr) {
+  const L = lenzLobes(view, c);
+  ctx.save();
+  ctx.font = `${11 * dpr}px system-ui, sans-serif`;
+  for (const lb of L.lobes) {
+    // shaded area between the trace and the baseline
+    ctx.globalAlpha = 0.18; ctx.fillStyle = color; ctx.beginPath();
+    ctx.moveTo(xOf(lb.tStart), yOf(L.base));
+    for (let i = 0; i < d.t.length; i++) if (d.t[i] > lb.tStart && d.t[i] < lb.tEnd) ctx.lineTo(xOf(d.t[i]), yOf(d.v[i]));
+    ctx.lineTo(xOf(lb.tEnd), yOf(L.base)); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+    // width bar at half height
+    const yh = yOf(L.base + lb.peak / 2), x1 = xOf(lb.tL), x2 = xOf(lb.tR), tk = 4 * dpr;
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2 * dpr; ctx.beginPath();
+    ctx.moveTo(x1, yh); ctx.lineTo(x2, yh); ctx.moveTo(x1, yh - tk); ctx.lineTo(x1, yh + tk); ctx.moveTo(x2, yh - tk); ctx.lineTo(x2, yh + tk);
+    ctx.stroke();
+    // peak marker + labels
+    const xp = xOf(lb.tPeak), yp = yOf(L.base + lb.peak);
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(xp, yp, 3.2 * dpr, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = color; ctx.textAlign = 'left';
+    ctx.textBaseline = lb.sign > 0 ? 'bottom' : 'top';
+    ctx.fillText(`${lb.peak > 0 ? '+' : '−'}${fmt(Math.abs(lb.peak), 1)} mV`, xp + 6 * dpr, yp + (lb.sign > 0 ? -2 : 2) * dpr);
+    ctx.fillStyle = '#ffffff'; ctx.textBaseline = lb.sign > 0 ? 'top' : 'bottom';
+    ctx.fillText(`${fmt(lb.width * 1000, 1)} ms`, x2 + 5 * dpr, yh + (lb.sign > 0 ? 2 : -2) * dpr);
+  }
+  ctx.restore();
+}
+
+function updateScopeMeasurements() {
+  const v = st.lastView, box = $('scopeMeas');
+  if (!v) { box.innerHTML = ''; return; }
+  const parts = [];
+  for (const c of [1, 2]) {
+    if (!showCh(c)) continue;
+    const d = c === 1 ? v.c1 : v.c2; if (d.v.length < 2) continue;
+    const s = stats(d.v);
+    const sw = `<span class="legend-sw" style="background:var(--c${c})"></span>`;
+    parts.push(`<div>${sw}C${c} amplitude <b>${fmt((s.max - s.min) / 2)} mV</b></div>`);
+    parts.push(`<div>${sw}C${c} max / min <b>${fmt(s.max)} / ${fmt(s.min)} mV</b></div>`);
+    if (d.t.length > 2) {
+      let maxGap = 0;
+      for (let i = 1; i < d.t.length; i++) maxGap = Math.max(maxGap, d.t[i] - d.t[i - 1]);
+      const avg = (d.t[d.t.length - 1] - d.t[0]) / (d.t.length - 1);
+      parts.push(`<div>${sw}C${c} sample spacing <b>${fmt(avg * 1000, 1)} ms avg · ${fmt(maxGap * 1000, 1)} ms max</b></div>`);
+    }
+  }
+  if (v.captured) parts.unshift(lenzTable(v));   // pulse table first when a capture is shown
+  box.innerHTML = parts.join('');
+}
+
+function updateSingleUi() {
+  const single = $('trigMode').value === 'single';
+  $('btnArm').style.display = single ? '' : 'none';
+  $('btnHold').style.display = single ? 'none' : '';
+  $('levelCtl').style.display = single ? '' : 'none';
+  $('btnDrop').style.display = single && st.kind === 'demo' ? '' : 'none';
+  $('btnArm').textContent = st.single.armed ? 'Armed…' : (st.single.capture ? 'Re-arm' : 'Arm');
+  $('btnArm').classList.toggle('on', st.single.armed);
+}
+
+// ---------------------------------------------------------------- readouts & connection UI
+function updateReadouts() {
+  const fs = st.hello ? st.hello.fs : 512;
+  const a1 = amplitude(1, 1.0), a2 = amplitude(2, 1.0);
+  const set = (id, val, unit) => { $(id).innerHTML = `${val}<small>${unit}</small>`; };
+  set('roA1', a1 ? fmt(a1.amp) : '—', 'mV'); set('roA2', a2 ? fmt(a2.amp) : '—', 'mV');
+  $('clip1').textContent = a1 && a1.maxAbs >= 0.97 * fs ? 'Clipping – slow the motor' : '';
+  $('clip2').textContent = a2 && a2.maxAbs >= 0.97 * fs ? 'Clipping – slow the motor' : '';
+  $('roRatio').textContent = a1 && a2 && a1.amp > 2 ? fmt(a2.amp / a1.amp, 3) : '—';
+  const wa = dual() ? waveAnalysis() : null;
+  set('roPhase', wa && wa.lag !== null ? fmt(wa.lag, 1) : '—', '°');
+  const s = st.status;
+  set('roRpm', s ? fmt(s.rpm, 0) : '—', 'rpm');
+  set('roOmega', s ? fmt(2 * Math.PI * s.rpm / 60, 2) : '—', 'rad/s');
+  set('roFreq', s ? (dual() ? `${fmt(s.f1, 2)} / ${fmt(s.f2, 2)}` : fmt(s.f1, 2)) : '—', 'Hz');
+
+  const now = performance.now();
+  if (now - st.pcRateWin >= 1000) { st.pcRate = st.pcSamples * 1000 / (now - st.pcRateWin); st.pcSamples = 0; st.pcRateWin = now; }
+  $('hdrRate').textContent = st.link ? `${Math.round(st.pcRate)} samples/s${s && s.dropped ? ` · ${s.dropped} lines dropped` : ''}` : '';
+  $('hdrFw').textContent = st.hello ? `firmware ${st.hello.fw}` : '';
+  updateConnUi();
+  if (st.rec.on) updateRecInfo();
+}
+
+function updateConnUi() {
+  const pill = $('connPill'), txt = $('connText'), now = performance.now();
+  pill.className = 'pill';
+  if (!st.link) { txt.textContent = 'Not connected'; }
+  else if (!st.hello && now - st.connectPc > 2500) {
+    pill.classList.add('bad'); txt.textContent = 'Kit not answering';
+    showBanner('Connected to the port, but the kit is not answering. Check that it runs the <b>EMF_Teaching_Kit_Dual_Coil_USB</b> firmware and that no other program is using the port.');
+  } else if (st.link && now - st.lastDataPc > 2000 && now - st.connectPc > 2500) { pill.classList.add('warn'); txt.textContent = 'No data'; }
+  else { pill.classList.add('ok'); txt.textContent = st.kind === 'demo' ? 'Demo (simulated kit)' : 'Connected'; }
+  const on = !!st.link;
+  $('btnConnect').textContent = st.kind === 'serial' ? 'Disconnect' : 'Connect kit';
+  $('btnConnect').classList.toggle('primary', st.kind !== 'serial');
+  $('btnDemo').textContent = st.kind === 'demo' ? 'Stop demo' : 'Demo mode';
+  $('btnConnect').disabled = st.kind === 'demo';
+  $('btnDemo').disabled = st.kind === 'serial';
+  const motorOk = on && (!st.hello || st.hello.motor);
+  for (const id of ['pwmSlider', 'pwmUp', 'pwmDown', 'dirF', 'dirR', 'dirS', 'btnSweep']) $(id).disabled = !motorOk;
+  $('btnRecordPoint').disabled = !on || !!st.sweep;
+  $('btnRec').disabled = !on && !st.rec.on;
+  $('motorNote').textContent = on && st.hello && !st.hello.motor
+    ? 'No motor board detected – the kit is in Lenz-only mode.'
+    : 'PWM is the motor drive level (0–255). The D0/D2 buttons on the kit also work.';
+}
+
+function onHello() {
+  hideBanner();
+  $('helpVersion').textContent = `Page version ${APP_VERSION} · kit firmware ${st.hello.fw} · protocol ${st.hello.proto}`;
+  if (st.hello.proto !== 1) toast('Warning: firmware protocol version differs from this page.');
+  updateConnUi(); updateSingleUi();
+}
+
+// ---------------------------------------------------------------- motor UI
+function syncMotorUi() {
+  const s = st.status; if (!s) return;
+  const touching = performance.now() - st.pwmTouchPc < 1500;
+  if (!touching) { $('pwmSlider').value = s.pwmSet; showPwm(s.pwmSet, s.pwmNow); }
+  for (const [id, d] of [['dirF', 'F'], ['dirR', 'R'], ['dirS', 'S']]) $(id).classList.toggle('on', s.dir === d);
+}
+function showPwm(set, now) {
+  const ramp = Number.isFinite(now) && Math.abs(now - set) > 2 && st.status && st.status.dir !== 'S';
+  $('pwmValue').innerHTML = `${set}<small>/ 255${ramp ? ` (now ${now})` : ''}</small>`;
+}
+function setPwm(v, immediate = false) {
+  v = clamp(Math.round(v), 0, 255);
+  $('pwmSlider').value = v; showPwm(v);
+  st.pwmTouchPc = performance.now();
+  clearTimeout(st.pwmTimer);
+  if (immediate) send(`PWM ${v}`); else st.pwmTimer = setTimeout(() => send(`PWM ${v}`), 120);
+}
+
+// ---------------------------------------------------------------- Faraday experiment
+function measurePoint() {
+  const now = performance.now();
+  const hist = st.statusHist.filter((s) => now - s.pc <= 2000);
+  if (hist.length < 5) return { error: 'Not enough readings yet – wait a moment.' };
+  const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+  const rpms = hist.map((s) => s.rpm), rpm = mean(rpms);
+  if (rpm < 5) return { error: 'The motor is not turning (speed ≈ 0 rpm).' };
+  const sd = Math.sqrt(mean(rpms.map((r) => (r - rpm) ** 2)));
+  if (sd / rpm > 0.04) return { error: `Speed is not steady yet (varies by ±${fmt(100 * sd / rpm, 0)} %). Wait a few seconds.`, retry: true };
+  const a1 = amplitude(1, 2.0), a2 = dual() ? amplitude(2, 2.0) : null;
+  if (!a1 || (dual() && !a2)) return { error: 'No coil data.' };
+  const fs = st.hello ? st.hello.fs : 512;
+  const last = hist[hist.length - 1];
+  return { point: { pwm: last.pwmNow, rpm, omega: 2 * Math.PI * rpm / 60, f: mean(hist.map((s) => s.f1)),
+    a1: a1.amp, a2: a2 ? a2.amp : NaN, ratio: a2 && a1.amp > 0 ? a2.amp / a1.amp : NaN,
+    clipped: a1.maxAbs >= 0.97 * fs || (!!a2 && a2.maxAbs >= 0.97 * fs) } };
+}
+function recordPoint() {
+  const m = measurePoint();
+  if (m.error) { toast(m.error); return false; }
+  st.far.push(m.point); renderFaraday();
+  if (m.point.clipped) toast('Recorded, but the signal was clipping at ±512 mV – this point will read low.');
+  return true;
+}
+function fitLines(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  let sxx = 0, sxy = 0, sx = 0, sy = 0;
+  for (let i = 0; i < n; i++) { sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; sx += xs[i]; sy += ys[i]; }
+  const k = sxy / sxx, my = sy / n;
+  let ssr = 0, sst = 0; for (let i = 0; i < n; i++) { ssr += (ys[i] - k * xs[i]) ** 2; sst += (ys[i] - my) ** 2; }
+  const den = n * sxx - sx * sx;
+  const b = den ? (n * sxy - sx * sy) / den : NaN, a = (sy - b * sx) / n;
+  return { k, r2: sst > 0 ? 1 - ssr / sst : NaN, a, b };
+}
+function renderFaraday() {
+  const tb = $('farTable').querySelector('tbody');
+  tb.innerHTML = st.far.map((p, i) => `<tr${p.clipped ? ' style="color:var(--bad)" title="clipped"' : ''}><td>${i + 1}</td><td>${p.pwm}</td><td>${fmt(p.rpm, 1)}</td>` +
+    `<td>${fmt(p.omega, 2)}</td><td>${fmt(p.f, 2)}</td><td>${fmt(p.a1, 1)}</td><td class="c2only">${fmt(p.a2, 1)}</td><td class="c2only">${fmt(p.ratio, 3)}</td>` +
+    `<td><button data-del="${i}" title="Delete this row">✕</button></td></tr>`).join('') ||
+    '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px;">No points yet.</td></tr>';
+  const xs = st.far.map((p) => p.omega);
+  const pts2 = st.far.filter((p) => Number.isFinite(p.a2));
+  const fits = { 1: fitLines(xs, st.far.map((p) => p.a1)),
+    2: dual() ? fitLines(pts2.map((p) => p.omega), pts2.map((p) => p.a2)) : null };
+  const coils = dual() ? [1, 2] : [1];
+  $('fitBox').innerHTML = coils.map((c) => {
+    const f = fits[c];
+    if (!f) return `<div class="fit"><div class="t">Coil ${c}</div><div class="n">—</div><div class="t">Record at least 2 points</div></div>`;
+    return `<div class="fit" style="border-left:4px solid var(--c${c})"><div class="t">Coil ${c}: slope k = N·B·A (fit through origin)</div>` +
+      `<div class="n">${fmt(f.k, 3)} mV·s/rad</div>` +
+      `<div class="t">= ${fmt(f.k, 3)} mWb-turns · R² = ${fmt(f.r2, 4)} · free-fit intercept ${fmt(f.a, 1)} mV</div></div>`;
+  }).join('') + (fits[1] && fits[2] && fits[1].k > 0
+    ? `<div class="fit"><div class="t">Slope ratio k₂ / k₁</div><div class="n">${fmt(fits[2].k / fits[1].k, 3)}</div><div class="t">compare with the mean C2/C1 ratio in the table</div></div>` : '');
+  drawFaradayChart(fits);
+}
+function niceTicks(max, count = 5) {
+  const raw = max / count, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
+  const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(v); return { ticks: out, step };
+}
+function drawFaradayChart(fits) {
+  const cv = $('faradayChart'); if (!cv.clientWidth) return;
+  const dpr = fitCanvas(cv), ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  ctx.fillStyle = css('--panel'); ctx.fillRect(0, 0, W, H);
+  const L = 58 * dpr, R = 14 * dpr, T = 28 * dpr, B = 44 * dpr, pw = W - L - R, ph = H - T - B;
+  const xmax0 = Math.max(10, ...st.far.map((p) => p.omega)) * 1.1;
+  const ymax0 = Math.max(10, ...st.far.map((p) => (dual() && Number.isFinite(p.a2) ? Math.max(p.a1, p.a2) : p.a1))) * 1.1;
+  const xt = niceTicks(xmax0), yt = niceTicks(ymax0);
+  const xmax = xt.ticks[xt.ticks.length - 1] < xmax0 ? xt.ticks[xt.ticks.length - 1] + xt.step : xt.ticks[xt.ticks.length - 1];
+  const ymax = yt.ticks[yt.ticks.length - 1] < ymax0 ? yt.ticks[yt.ticks.length - 1] + yt.step : yt.ticks[yt.ticks.length - 1];
+  const X = (x) => L + x / xmax * pw, Y = (y) => T + ph - y / ymax * ph;
+  ctx.font = `${11.5 * dpr}px system-ui, sans-serif`; ctx.lineWidth = 1;
+  ctx.strokeStyle = css('--line'); ctx.fillStyle = css('--muted');
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let y = 0; y <= ymax + 1e-9; y += yt.step) { ctx.beginPath(); ctx.moveTo(L, Math.round(Y(y)) + .5); ctx.lineTo(L + pw, Math.round(Y(y)) + .5); ctx.stroke(); ctx.fillText(+y.toFixed(6), L - 6 * dpr, Y(y)); }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let x = 0; x <= xmax + 1e-9; x += xt.step) { ctx.beginPath(); ctx.moveTo(Math.round(X(x)) + .5, T); ctx.lineTo(Math.round(X(x)) + .5, T + ph); ctx.stroke(); ctx.fillText(+x.toFixed(6), X(x), T + ph + 6 * dpr); }
+  ctx.fillStyle = css('--ink'); ctx.fillText('angular speed ω (rad/s)', L + pw / 2, T + ph + 24 * dpr);
+  ctx.save(); ctx.translate(14 * dpr, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'middle'; ctx.fillText('EMF amplitude ε₀ (mV)', 0, 0); ctx.restore();
+  const col = { 1: css('--c1'), 2: css('--c2') };
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+  const coils = dual() ? [1, 2] : [1];
+  for (const c of coils) {
+    const f = fits && fits[c];
+    if (f) { ctx.strokeStyle = col[c]; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(xmax), Y(f.k * xmax)); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.fillStyle = col[c];
+    for (const p of st.far) { const y = c === 1 ? p.a1 : p.a2; if (!Number.isFinite(y)) continue; ctx.beginPath(); ctx.arc(X(p.omega), Y(y), 4.2 * dpr, 0, 2 * Math.PI); ctx.fill(); }
+  }
+  ctx.restore();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  let lx = L + 4 * dpr;
+  for (const c of coils) { ctx.fillStyle = col[c]; ctx.beginPath(); ctx.arc(lx + 5 * dpr, 13 * dpr, 4.2 * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = css('--ink'); ctx.fillText(`Coil ${c}`, lx + 13 * dpr, 13 * dpr); lx += 70 * dpr; }
+  ctx.fillStyle = css('--muted'); ctx.fillText('dashed: best fit ε₀ = kω', lx + 4 * dpr, 13 * dpr);
+}
+
+async function runSweep() {
+  if (st.sweep) { st.sweep.cancel = true; return; }
+  const from = clamp(+$('swFrom').value, 0, 255), to = clamp(+$('swTo').value, 0, 255);
+  const n = clamp(Math.round(+$('swN').value), 2, 30), settle = clamp(+$('swSettle').value, 2, 30);
+  const sw = (st.sweep = { cancel: false });
+  $('btnSweep').textContent = 'Cancel sweep'; updateConnUi();
+  const note = (t) => { $('sweepNote').textContent = t; };
+  try {
+    if (!st.status || st.status.dir === 'S') send('DIR F');
+    for (let i = 0; i < n && !sw.cancel; i++) {
+      const pwm = Math.round(from + (to - from) * i / (n - 1));
+      setPwm(pwm, true);
+      for (let s = settle; s > 0 && !sw.cancel; s--) { note(`Point ${i + 1} of ${n}: PWM ${pwm} – settling ${s} s…`); await sleep(1000); }
+      let ok = false;
+      for (let tries = 0; tries < 4 && !sw.cancel && !ok; tries++) {
+        const m = measurePoint();
+        if (m.point) { st.far.push(m.point); renderFaraday(); ok = true; }
+        else { note(`Point ${i + 1}: ${m.error}`); await sleep(1500); }
+      }
+      if (!ok && !sw.cancel) note(`Point ${i + 1} skipped (speed not steady).`);
+    }
+    note(sw.cancel ? 'Sweep cancelled – motor stopped.' : 'Sweep finished – motor stopped.');
+  } finally {
+    send('DIR S');
+    st.sweep = null; $('btnSweep').textContent = 'Auto sweep'; updateConnUi();
+  }
+}
+
+// ---------------------------------------------------------------- recording / export
+function stamp() { const d = new Date(), z = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; }
+function download(name, parts, type = 'text/csv') {
+  const url = URL.createObjectURL(parts instanceof Blob ? parts : new Blob(parts, { type }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function toggleRecording() {
+  const r = st.rec;
+  if (!r.on) {
+    r.on = true; r.raw = new SampleLog(); r.status = []; r.t0 = NaN; r.lastT = 0; r.startPc = performance.now();
+    $('btnRec').textContent = 'Stop recording'; $('btnRec').classList.add('danger', 'on');
+  } else stopRecording();
+  updateRecInfo();
+}
+function stopRecording() {
+  const r = st.rec; r.on = false;
+  $('btnRec').textContent = 'Start recording'; $('btnRec').classList.remove('danger', 'on');
+  $('btnRawCsv').disabled = !(r.raw && r.raw.n); $('btnStatusCsv').disabled = !r.status.length;
+  updateRecInfo();
+}
+function updateRecInfo() {
+  const r = st.rec;
+  const dur = r.raw && r.raw.n ? r.lastT : 0;
+  if (r.on && dur >= REC_LIMIT_S) { stopRecording(); toast('Recording stopped at the 30-minute limit.'); }
+  $('recInfo').textContent = r.raw ? `${r.on ? 'Recording' : 'Recorded'} ${fmt(dur, 1)} s · ${r.raw.n.toLocaleString()} samples · ${r.status.length} status lines` : 'Not recording.';
+}
+function exportRaw() {
+  const r = st.rec; if (!r.raw || !r.raw.n) return;
+  const parts = ['time_s,coil,emf_mV\n'];
+  for (let k = 0; k < r.raw.chunks.length; k++) {
+    const ch = r.raw.chunks[k], m = Math.min(r.raw.CH, r.raw.n - k * r.raw.CH); let s = '';
+    for (let i = 0; i < m; i++) s += `${ch.t[i].toFixed(6)},${ch.c[i]},${ch.v[i].toFixed(4)}\n`;
+    parts.push(s);
+  }
+  download(`emf_raw_${stamp()}.csv`, parts);
+}
+function exportStatus() {
+  const two = dual();
+  const rows = [two ? 'time_s,pwm_set,pwm_now,dir,rpm,f1_Hz,f2_Hz,peak1_mV,peak2_mV,rms1_mV,rms2_mV,sps,dropped'
+                    : 'time_s,pwm_set,pwm_now,dir,rpm,f1_Hz,peak1_mV,rms1_mV,sps,dropped'];
+  for (const [t, s] of st.rec.status) rows.push((two
+    ? [t.toFixed(3), s.pwmSet, s.pwmNow, s.dir, s.rpm, s.f1, s.f2, s.pk1, s.pk2, s.rms1, s.rms2, s.sps, s.dropped]
+    : [t.toFixed(3), s.pwmSet, s.pwmNow, s.dir, s.rpm, s.f1, s.pk1, s.rms1, s.sps, s.dropped]).join(','));
+  download(`emf_status_${stamp()}.csv`, [rows.join('\n') + '\n']);
+}
+function exportFaraday() {
+  const two = dual();
+  const rows = [two ? 'point,pwm,rpm,omega_rad_s,f_Hz,amp_C1_mV,amp_C2_mV,ratio_C2_C1,clipped' : 'point,pwm,rpm,omega_rad_s,f_Hz,amp_C1_mV,clipped'];
+  const num = (x, d) => (Number.isFinite(x) ? x.toFixed(d) : '');
+  st.far.forEach((p, i) => rows.push((two
+    ? [i + 1, p.pwm, num(p.rpm, 2), num(p.omega, 4), num(p.f, 4), num(p.a1, 3), num(p.a2, 3), num(p.ratio, 4), p.clipped ? 1 : 0]
+    : [i + 1, p.pwm, num(p.rpm, 2), num(p.omega, 4), num(p.f, 4), num(p.a1, 3), p.clipped ? 1 : 0]).join(',')));
+  download(`emf_faraday_${stamp()}.csv`, [rows.join('\n') + '\n']);
+}
+function savePng(canvas, name) { canvas.toBlob((b) => b && download(name, b, 'image/png')); }
+
+// ---------------------------------------------------------------- misc UI
+let toastTimer = null;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3800); }
+function showBanner(html) { const b = $('banner'); b.innerHTML = html; b.classList.add('show'); }
+function hideBanner() { $('banner').classList.remove('show'); }
+
+function wireUi() {
+  $('btnConnect').onclick = () => (st.kind === 'serial' ? disconnect() : connectSerial());
+  $('btnDemo').onclick = () => (st.kind === 'demo' ? disconnect() : startDemo());
+  document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+    document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('active', x === b));
+    document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.id === b.dataset.tab));
+    if (b.dataset.tab === 'tabFaraday') renderFaraday();
+  });
+  $('pwmSlider').oninput = (e) => setPwm(+e.target.value);
+  $('pwmUp').onclick = () => setPwm(+$('pwmSlider').value + 10, true);
+  $('pwmDown').onclick = () => setPwm(+$('pwmSlider').value - 10, true);
+  $('dirF').onclick = () => send('DIR F'); $('dirR').onclick = () => send('DIR R'); $('dirS').onclick = () => send('DIR S');
+  $('trigMode').onchange = () => { st.single = { armed: false, trig: null, W: windowSeconds(), capture: null }; st.hold = false; $('btnHold').classList.remove('on'); updateSingleUi(); };
+  $('btnArm').onclick = () => { st.single = { armed: true, trig: null, W: windowSeconds(), capture: null }; st.vdiv.smallerSince = 0; updateSingleUi(); };
+  $('btnDrop').onclick = () => { if (demoSimRef()) demoSimRef().dropMagnet(); };
+  $('btnHold').onclick = () => { st.hold = !st.hold; st.holdView = st.hold ? st.lastView : null; $('btnHold').classList.toggle('on', st.hold); $('btnHold').textContent = st.hold ? 'Run' : 'Hold'; };
+  $('btnPng').onclick = () => savePng($('scope'), `emf_scope_${stamp()}.png`);
+  $('btnRecordPoint').onclick = recordPoint;
+  $('btnSweep').onclick = runSweep;
+  $('btnFarClear').onclick = () => { if (!st.far.length || confirmClear()) { st.far = []; renderFaraday(); } };
+  $('farTable').onclick = (e) => { const i = e.target.dataset && e.target.dataset.del; if (i !== undefined) { st.far.splice(+i, 1); renderFaraday(); } };
+  $('btnFarCsv').onclick = exportFaraday;
+  $('btnFarPng').onclick = () => savePng($('faradayChart'), `emf_faraday_${stamp()}.png`);
+  $('btnRec').onclick = toggleRecording;
+  $('btnRawCsv').onclick = exportRaw; $('btnStatusCsv').onclick = exportStatus;
+  $('chkCoil2').onchange = () => { try { localStorage.setItem('emfLab.coil2', dual() ? '1' : '0'); } catch (e) { /* storage blocked */ } applyCoilMode(); };
+  window.addEventListener('resize', () => renderFaraday());
+  window.addEventListener('beforeunload', () => { if (st.link) st.link.send('STREAM 0'); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && st.link) send('STREAM 1'); });
+}
+let clearArmedUntil = 0;
+function confirmClear() { // two-click confirm without a blocking dialog
+  const now = performance.now();
+  if (now < clearArmedUntil) { clearArmedUntil = 0; $('btnFarClear').textContent = 'Clear all'; return true; }
+  clearArmedUntil = now + 3000; $('btnFarClear').textContent = 'Click again to clear';
+  setTimeout(() => { $('btnFarClear').textContent = 'Clear all'; }, 3000);
+  return false;
+}
+function demoSimRef() { return st.link && st.link.kind === 'demo' ? st.link.sim : null; }
+
+
+// ---------------------------------------------------------------- main loop
+function frame() {
+  if ($('tabScope').classList.contains('active')) drawScope();
+  requestAnimationFrame(frame);
+}
+// One coil (default) or two: hides every Coil-2 element and keeps C2 out of recordings.
+function applyCoilMode() {
+  document.body.classList.toggle('single-coil', !dual());
+  if (!dual()) { $('trigSrc').value = '1'; $('layout').value = 'overlay'; }
+  $('roFreqLabel').textContent = dual() ? 'EMF frequency (C1 / C2)' : 'EMF frequency';
+  renderFaraday(); updateSingleUi();
+}
+function init() {
+  try { $('chkCoil2').checked = localStorage.getItem('emfLab.coil2') === '1'; } catch (e) { /* storage blocked */ }
+  wireUi();
+  applyCoilMode();
+  if (!('serial' in navigator)) showBanner('This browser cannot talk to USB serial devices. Open this page in <b>Google Chrome</b> or <b>Microsoft Edge</b>. (Demo mode still works.)');
+  $('helpVersion').textContent = `Page version ${APP_VERSION}`;
+  updateSingleUi(); updateConnUi(); renderFaraday();
+  setInterval(() => { updateReadouts(); updateScopeMeasurements(); }, 250);
+  requestAnimationFrame(frame);
+}
+init();
+
+</script>
+</body>
+</html>
