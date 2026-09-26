@@ -3,7 +3,7 @@
 Browser front end for the dual-coil Faraday / Lenz teaching kit
 (Adafruit Feather ESP32-S2 Reverse TFT running `EMF_Teaching_Kit_Dual_Coil_USB` firmware).
 
-**Open the app:** `https://<your-github-username>.github.io/<repository-name>/`
+**Open the app:** https://openvidya-physics.github.io/emf-lab/
 
 ## Using it in the lab
 

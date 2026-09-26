@@ -89,6 +89,13 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .lenz-box { grid-column: 1 / -1; margin-top: 4px; }
 table.lenz th, table.lenz td { font-size: 12.5px; }
 table.lenz tr.sub td { text-align: left; color: var(--muted); background: #fafbfc; }
+.demo-row { display: none; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; padding: 8px 12px;
+  border: 1px dashed #c9d3e3; border-radius: 8px; background: #f7f9fd; font-size: 13px; }
+body.demo .demo-row { display: flex; }
+.demo-row input[type=range] { width: 180px; }
+.demo-row label { color: var(--ink); font-size: 13px; }
+.demo-tag { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #fff; background: var(--accent); border-radius: 4px; padding: 2px 6px; }
+.demo-hint { color: var(--muted); font-size: 12px; }
 .legend-sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
 
 /* tables */
@@ -214,6 +221,14 @@ td button { min-height: 24px; padding: 1px 8px; font-size: 12px; }
         <button id="btnHold">Hold</button>
         <button id="btnPng" title="Save the scope picture for your report">Save image</button>
       </div>
+      <div class="demo-row c2only" id="demoCtl">
+        <span class="demo-tag">Demo</span>
+        <label for="demoAngle">Coil 2 position around the magnet</label>
+        <input type="range" id="demoAngle" min="0" max="180" step="5" value="180" aria-label="Coil 2 position in degrees">
+        <b id="demoAngleVal">180°</b>
+        <label><input type="checkbox" id="demoRev" checked> Coil 2 leads reversed</label>
+        <span class="demo-hint">180° + reversed leads = the real kit (coils facing each other across the magnet) → phase 0°</span>
+      </div>
       <div class="scope-wrap">
         <canvas id="scope"></canvas>
         <div class="scope-badge" id="scopeBadge">—</div>
@@ -294,6 +309,7 @@ td button { min-height: 24px; padding: 1px 8px; font-size: 12px; }
         <li>The kit screen shows the largest |peak|; this page shows half the peak-to-peak value, which ignores any small DC offset. They can differ by a few mV.</li>
         <li>Speed (rpm) is worked out from the Coil 1 EMF frequency, so it reads 0 when the motor is stopped or the signal is too small.</li>
         <li><b>Phase</b> is the phase difference of the <i>fundamental</i> (best-fit sine) of each coil. If the waveforms have different shapes, the peaks and zero crossings on the screen can be several degrees further apart or closer together than this number.</li>
+        <li><b>Demo mode, two coils</b>: the <i>Coil 2 position</i> slider moves the simulated Coil 2 around the magnet. A coil that faces the magnet from angle α sees the flux ∝ cos(θ − α), so its EMF lags Coil 1 by α: the phase reading follows the slider degree for degree. Two coils facing each other across the magnet (180°) see opposite flux, so their EMFs are 180° apart; swapping one coil's two leads adds another 180°. That is why the real kit, with its coils on opposite sides of the rail, reads about 0°. Start at 180° with <i>leads reversed</i> (like the kit), then untick it or move the slider and watch the phase.</li>
         <li><b>Alignment check</b>: with the coils placed symmetrically, the phase should read about 0° in both Forward and Reverse. The same number with opposite sign in the two directions comes from the geometry (magnet or coil position); a number that keeps its sign would be a timing error.</li>
       </ul>
       <h3>Troubleshooting</h3>
@@ -317,7 +333,7 @@ td button { min-height: 24px; padding: 1px 8px; font-size: 12px; }
 //   kit -> PC : H,fw,proto,ncyc,fs_mV,motor  D,t_us,coil,uV
 //               S,t_ms,pwm_set,pwm_now,dir,rpm,f1,f2,pk1,pk2,rms1,rms2,sps,dropped
 //               OK,cmd  E,message
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 const ADAFRUIT_VID = 0x239A;
 const RING_SIZE = 32768;            // per coil, ~90 s at 330 samples/s
 const REC_LIMIT_S = 30 * 60;
@@ -531,6 +547,8 @@ async function connectSerial() {
 
 function startDemo() {
   const sim = new Simulator();
+  sim.c2AngleDeg = Number($('demoAngle').value);
+  sim.c2Sign = $('demoRev').checked ? -1 : 1;
   const link = { kind: 'demo', sim, send: (l) => sim.command(l), close: async () => sim.stop() };
   startLink(link, 'demo');
   sim.start();
@@ -540,6 +558,7 @@ function startDemo() {
 function startLink(link, kind) {
   resetData();
   st.link = link; st.kind = kind; st.connectPc = performance.now();
+  document.body.classList.toggle('demo', kind === 'demo');
   send('INFO'); send('STREAM 1');
   // Keep-alive. If data has stopped (e.g. the tab was in the background long
   // enough for Chrome to throttle timers and the kit timed out), re-request it.
@@ -556,6 +575,7 @@ async function disconnect() {
   if (st.sweep) st.sweep.cancel = true;
   clearInterval(st.keepAlive); st.keepAlive = null;
   st.link = null; st.kind = 'off';
+  document.body.classList.remove('demo');
   if (st.rec.on) stopRecording();
   hideBanner();
   if (link) { try { await link.close(); } catch (e) { /* already gone */ } }
@@ -575,6 +595,9 @@ class Simulator {
     this.stream = false; this.ncyc = 1; this.t0 = performance.now(); this.tUs = 0; this.nextCh = 1;
     this.lastStatusUs = 0; this.drops = []; this.hist = { 1: [], 2: [] }; this.cross = [];
     this.sampleCount = 0; this.spsWinUs = 0; this.sps = 0; this.timer = null; this.k1 = 11; this.k2 = 0.62 * 11;
+    // Coil 2 position around the magnet (deg from Coil 1) and lead polarity (-1 = reversed).
+    // Each coil faces the magnet, so it sees flux ∝ cos(θ − α): its EMF lags Coil 1 by α.
+    this.c2AngleDeg = 180; this.c2Sign = -1;
   }
   start() { this.timer = setInterval(() => this.tick(), 20); }
   stop() { clearInterval(this.timer); }
@@ -615,8 +638,8 @@ class Simulator {
       this.theta += w * this.ncyc * dt;
       const t = this.tUs / 1e6, ch = this.nextCh; this.nextCh = ch === 1 ? 2 : 1;
       let mv = ch === 1 ? this.k1 * Math.abs(w) * Math.sin(this.theta) + 0.8
-                        : this.k2 * Math.abs(w) * Math.sin(this.theta - 40 * Math.PI / 180) - 0.4;
-      for (const d of this.drops) mv += ch === 1 ? this.lenz(t, d, 2.0) : this.lenz(t, d + 0.07, 1.0);
+                        : this.c2Sign * this.k2 * Math.abs(w) * Math.sin(this.theta - this.c2AngleDeg * Math.PI / 180) - 0.4;
+      for (const d of this.drops) mv += ch === 1 ? this.lenz(t, d, 2.0) : this.c2Sign * this.lenz(t, d + 0.07, 1.0);
       mv += 0.25 * this.gauss();
       mv = clamp(mv, -512, 511.98);
       const uv = Math.round(mv * 64) * 15.625; // ADS1115 gain 8 LSB
@@ -1278,6 +1301,12 @@ function wireUi() {
   $('btnFarCsv').onclick = exportFaraday;
   $('btnFarPng').onclick = () => savePng($('faradayChart'), `emf_faraday_${stamp()}.png`);
   $('btnRec').onclick = toggleRecording;
+  const demoCoil2 = () => {
+    $('demoAngleVal').textContent = `${$('demoAngle').value}°`;
+    const sim = demoSimRef();
+    if (sim) { sim.c2AngleDeg = Number($('demoAngle').value); sim.c2Sign = $('demoRev').checked ? -1 : 1; }
+  };
+  $('demoAngle').oninput = demoCoil2; $('demoRev').onchange = demoCoil2;
   $('btnRawCsv').onclick = exportRaw; $('btnStatusCsv').onclick = exportStatus;
   $('chkCoil2').onchange = () => { try { localStorage.setItem('emfLab.coil2', dual() ? '1' : '0'); } catch (e) { /* storage blocked */ } applyCoilMode(); };
   window.addEventListener('resize', () => renderFaraday());
